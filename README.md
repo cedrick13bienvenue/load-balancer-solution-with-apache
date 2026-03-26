@@ -25,18 +25,18 @@ This project enhances the **Propitix Tooling Website** infrastructure from the p
                     TCP port 80
                           |
                    Load Balancer          ← Ubuntu 24.04 (Apache2 + mod_proxy_balancer)
-                   13.60.210.201
+                  <LB-PUBLIC-IP>
                   /             \
            TCP 80                TCP 80
               /                     \
        Web-Server-1            Web-Server-2   ← RHEL 8 (Apache httpd + PHP)
-       172.31.35.66            172.31.37.72
+      <WS1-PRIVATE-IP>        <WS2-PRIVATE-IP>
               |                     |
               └──────────┬──────────┘
                     TCP 3306
                          |
                     DB Server              ← Ubuntu 20.04 (MySQL)
-                   172.31.23.185
+                  <DB-PRIVATE-IP>
                          |
               ┌──────────┴──────────┐
          TCP/UDP 2049            TCP/UDP 2049
@@ -44,7 +44,7 @@ This project enhances the **Propitix Tooling Website** infrastructure from the p
        Web-Server-1            Web-Server-2
               └──────────┬──────────┘
                     NFS Server             ← RHEL 8 (/mnt/apps)
-                   172.31.22.95
+                  <NFS-PRIVATE-IP>
 ```
 
 ---
@@ -55,10 +55,10 @@ The following servers from the previous project (DevOps Tooling Website Solution
 
 | Server | Name | Public IP | Private IP |
 |---|---|---|---|
-| Web Server 1 | `Project7-Web-1` | `13.60.84.49` | `172.31.35.66` |
-| Web Server 2 | `Project7-Web-2` | `13.53.119.99` | `172.31.37.72` |
-| NFS Server | `Project7-NFS` | `13.60.224.120` | `172.31.22.95` |
-| DB Server | `Project7-DB` | `13.62.53.242` | `172.31.23.185` |
+| Web Server 1 | `Project7-Web-1` | `<WS1-PUBLIC-IP>` | `<WS1-PRIVATE-IP>` |
+| Web Server 2 | `Project7-Web-2` | `<WS2-PUBLIC-IP>` | `<WS2-PRIVATE-IP>` |
+| NFS Server | `Project7-NFS` | `<NFS-PUBLIC-IP>` | `<NFS-PRIVATE-IP>` |
+| DB Server | `Project7-DB` | `<DB-PUBLIC-IP>` | `<DB-PRIVATE-IP>` |
 
 **Prerequisite checklist:**
 - Apache (`httpd`) is running on both Web Servers
@@ -139,7 +139,7 @@ The following servers from the previous project (DevOps Tooling Website Solution
 - **Status checks** = `2/2 checks passed`
 
 > **Expected Output**: The EC2 instances list shows `Project-8-apache-lb` in `Running` state.
-> ![AWS EC2 console — Project-8-apache-lb instance launched and in Running state with instance details showing Public IP 13.60.210.201 and Private IP 172.31.20.156](screenshoots/lb-instance-launched.png)
+> ![AWS EC2 console — Project-8-apache-lb instance launched and in Running state with instance details showing the assigned Public IP and Private IP](screenshoots/lb-instance-launched.png)
 
 ---
 
@@ -269,7 +269,7 @@ http://<Load-Balancer-Public-IP>/index.php
 ```
 
 > **Expected Output**: The Propitix Tooling Website login page loads — with the URL bar showing the Load Balancer's IP, not any individual Web Server IP.
-> ![Browser — Propitix Tooling Website login page loading via Load Balancer public IP 13.60.210.201/login.php](screenshoots/tooling-website-lb.png)
+> ![Browser — Propitix Tooling Website login page loading via Load Balancer public IP](screenshoots/tooling-website-lb.png)
 
 ---
 
@@ -285,10 +285,10 @@ sudo tail -f /var/log/httpd/access_log
 sudo tail -f /var/log/httpd/access_log
 ```
 
-Refresh the browser page at `http://<LB-Public-IP>/index.php` several times. Observe both terminals — new log entries with the **Load Balancer's private IP** (`172.31.20.156`) should appear in **both** servers' logs, confirming that requests are being distributed between them.
+Refresh the browser page at `http://<LB-Public-IP>/index.php` several times. Observe both terminals — new log entries with the **Load Balancer's private IP** (`<LB-PRIVATE-IP>`) should appear in **both** servers' logs, confirming that requests are being distributed between them.
 
 > **Expected Output**: Both access logs show incoming requests from the LB's private IP. The number of requests per server is approximately equal since `loadfactor` is identical for both.
-> ![Split terminal — Web Server 1 (left) and Web Server 2 (right) access logs both showing incoming requests from 172.31.20.156 (the Load Balancer's private IP)](screenshoots/load-balancing-logs.png)
+> ![Split terminal — Web Server 1 (left) and Web Server 2 (right) access logs both showing incoming requests from the Load Balancer's private IP](screenshoots/load-balancing-logs.png)
 
 ---
 
@@ -313,8 +313,8 @@ Add the following two lines at the bottom (using your Web Servers' **private** I
 
 Example:
 ```
-172.31.35.66  Web1
-172.31.37.72  Web2
+<WS1-PRIVATE-IP>  Web1
+<WS2-PRIVATE-IP>  Web2
 ```
 
 Save and exit (`:wq`).
@@ -331,8 +331,8 @@ Replace the `BalancerMember` lines:
 
 **Before:**
 ```apache
-BalancerMember http://172.31.35.66:80 loadfactor=5 timeout=1
-BalancerMember http://172.31.37.72:80 loadfactor=5 timeout=1
+BalancerMember http://<WS1-PRIVATE-IP>:80 loadfactor=5 timeout=1
+BalancerMember http://<WS2-PRIVATE-IP>:80 loadfactor=5 timeout=1
 ```
 
 **After:**
@@ -367,9 +367,9 @@ curl http://Web2
 
 This project successfully added a **Layer 7 Application Load Balancer** using Apache's `mod_proxy_balancer` in front of the existing two-node Tooling Website cluster. Key outcomes:
 
-- All client traffic now enters through a **single public IP** (`13.60.210.201`) — users access one URL regardless of how many backend servers exist
+- All client traffic now enters through a **single public IP** — users access one URL regardless of how many backend servers exist
 - The `bytraffic` load balancing method distributes requests proportionally based on bytes transferred, with equal `loadfactor=5` weights producing an approximately 50/50 traffic split
-- Both Web Servers confirmed receiving requests from the LB's private IP (`172.31.20.156`) via their Apache access logs
+- Both Web Servers confirmed receiving requests from the LB's private IP via their Apache access logs
 - Local DNS name resolution was configured on the LB server (`/etc/hosts`) to replace raw IP addresses with readable hostnames `Web1` and `Web2`
 - The architecture is now horizontally scalable — additional Web Servers can be added by appending new `BalancerMember` lines to the configuration
 
