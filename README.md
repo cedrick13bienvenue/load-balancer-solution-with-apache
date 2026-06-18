@@ -372,7 +372,6 @@ This project successfully added a **Layer 7 Application Load Balancer** using Ap
 - Both Web Servers confirmed receiving requests from the LB's private IP via their Apache access logs
 - Local DNS name resolution was configured on the LB server (`/etc/hosts`) to replace raw IP addresses with readable hostnames `Web1` and `Web2`
 - The architecture is now horizontally scalable — additional Web Servers can be added by appending new `BalancerMember` lines to the configuration
-
 **Side Self Study:**
 - Read about different Load Balancing concepts and the difference between **L4 Network LB** and **L7 Application LB**
 - Read more about different configuration aspects of Apache `mod_proxy_balancer` — understand what **sticky session** means and when it is used
